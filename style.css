@@ -93,7 +93,7 @@ label{display:block;color:var(--mut);font-size:13px;margin:10px 0 6px}
 .side{position:fixed;bottom:0;top:auto;height:auto;inset-inline:0;z-index:20;flex-direction:row;padding:6px;border-top:1px solid var(--line);border-inline-end:0;overflow-x:auto;gap:2px}
 .brand,.side .foot{display:none}
 .nav{display:flex;gap:2px;width:100%}
-.nav a{flex-direction:column;gap:2px;padding:7px 10px;font-size:11px;min-width:64px;text-align:center;white-space:nowrap}
+.nav a{flex-direction:column;gap:2px;padding:7px 10px;font-size:11px;min-width:78px;text-align:center;white-space:nowrap}
 .nav .bd{position:absolute;margin:0;transform:translate(14px,-6px);font-size:10px;padding:0 6px}
 .nav a{position:relative}
 .main{padding:16px 14px 110px}
