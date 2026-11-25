@@ -104,3 +104,5 @@ label{display:block;color:var(--mut);font-size:13px;margin:10px 0 6px}
 .g4.k{grid-template-columns:1fr 1fr}
 .toast{bottom:100px}
 }
+
+.btn.cta{background:linear-gradient(90deg,var(--gold),var(--gold2));color:#1a1405;font-weight:900;border:0;font-size:15px;padding:11px 18px;box-shadow:0 0 18px rgba(232,195,106,.35)}
