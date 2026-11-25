@@ -66,8 +66,8 @@ function shell(inner,title){
  <main class="main"><div class="top"><h1>${title}</h1><div class="sync"><span class="dot ${state.ok?'':'off'}"></span>${state.ok?'متصل':'مفيش اتصال'}${state.last?' · '+fmtTime(state.last):''}</div></div>${inner}</main></div>`;
 }
 function det(i){const d=i.payload&&i.payload.details;return d?`<div class="btns"><button class="btn" data-a="details" data-k="${E(i.key)}">📋 التفاصيل والخطوات</button></div>`:''}
-async function loadFiles(){if(window.OPS_FILES&&window.OPS_FILES.g4)return;for(const n of ['files-a.js','files-b.js'])await new Promise(r=>{const x=document.createElement('script');x.src=n;x.onload=r;x.onerror=r;document.head.appendChild(x)})}
-async function showDetails(it){const d=(it.payload||{}).details||{};const m=$('#modal');if((d.files||[]).some(f=>f.file))await loadFiles();
+async function loadFiles(list){for(const k of list){if(window.OPS_FILES&&window.OPS_FILES[k])continue;await new Promise(r=>{const x=document.createElement('script');x.src='f-'+k+'.js';x.onload=r;x.onerror=r;document.head.appendChild(x)})}}
+async function showDetails(it){const d=(it.payload||{}).details||{};const m=$('#modal');await loadFiles((d.files||[]).filter(f=>f.file).map(f=>f.file));
  const steps=(d.steps||[]).length?`<h5>الخطوات</h5><ol class="steps">${d.steps.map(x=>`<li>${E(x)}</li>`).join('')}</ol>`:'';
  const blocks=(d.blocks||[]).map((b,n)=>`<div class="cb"><div class="row"><b>${E(b.label||'')}</b><button class="btn" data-copy="${n}">نسخ</button></div><pre id="cb${n}">${E(b.text||'')}</pre></div>`).join('');
  const files=(d.files||[]).length?`<h5>ملفات للتحميل</h5><div class="btns">${d.files.map(f=>`<a class="btn" href="${f.file?((window.OPS_FILES||{})[f.file]||'#'):E(f.url)}" ${f.file?'':'target="_blank" rel="noopener" '}download="${E(f.save||f.name||'file')}">⬇ ${E(f.name||'ملف')}</a>`).join('')}</div>`:'';
