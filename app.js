@@ -65,7 +65,8 @@ function shell(inner,title){
  <div class="foot"><div>آخر تحديث للبيانات: ${snap&&snap.at?fmtTime(snap.at):'لسه ما اتحدثتش'}</div><button class="btn" style="margin-top:8px;width:100%;justify-content:center" id="out">خروج</button></div></aside>
  <main class="main"><div class="top"><h1>${title}</h1><div class="sync"><span class="dot ${state.ok?'':'off'}"></span>${state.ok?'متصل':'مفيش اتصال'}${state.last?' · '+fmtTime(state.last):''}</div></div>${inner}</main></div>`;
 }
-function itemCard(i,extra){return `<div class="card item"><div class="row"><h4>${E(i.title)}</h4>${badge(i.status)}</div>${i.body?`<p>${E(i.body)}</p>`:''}${extra||''}${i.link?`<div class="btns"><a class="btn" href="${E(i.link)}" target="_blank" rel="noopener">افتح اللينك ↗</a></div>`:''}</div>`}
+function cta(i,def){if(!i.link)return'';const l=(i.payload&&i.payload.cta)||def;return `<div class="btns"><a class="btn cta" href="${E(i.link)}" target="_blank" rel="noopener">${E(l)} ↗</a></div>`}
+function itemCard(i,extra){return `<div class="card item"><div class="row"><h4>${E(i.title)}</h4>${badge(i.status)}</div>${i.body?`<p>${E(i.body)}</p>`:''}${extra||''}${cta(i,'افتح اللينك')}</div>`}
 function cmdFor(ref,kinds){return state.cmds.find(c=>c.ref===ref&&kinds.includes(c.kind))}
 function decisionCard(d){
  const c=cmdFor(d.key,['approval','reject']);
@@ -73,7 +74,7 @@ function decisionCard(d){
  let acts='';
  if(d.status==='open'&&!c) acts=`<div class="btns">${(p.options&&p.options.length)?p.options.map(o=>`<button class="btn ok" data-a="choose" data-k="${E(d.key)}" data-v="${E(o)}">${E(o)}</button>`).join(''):`<button class="btn ok" data-a="approve" data-k="${E(d.key)}">موافق</button>`}<button class="btn no" data-a="reject" data-k="${E(d.key)}">رفض</button></div>`;
  else if(c) acts=`<div class="note">${c.kind==='approval'?'وافقت':'رفضت'}${c.body?' ('+E(c.body)+')':''} · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
- return `<div class="card item"><div class="row"><h4>${E(d.title)}</h4>${badge(c&&d.status==='open'?'sent':d.status)}</div>${d.body?`<p>${E(d.body)}</p>`:''}${p.amount?`<div class="kv"><span>المبلغ</span><b>${money(p.amount)}${est(p)}</b></div>`:''}${p.what?`<div class="kv"><span>نوع القرار</span><b>${E(p.what)}</b></div>`:''}${d.link?`<div class="btns"><a class="btn" href="${E(d.link)}" target="_blank" rel="noopener">اتفرج الأول ↗</a></div>`:''}${acts}</div>`}
+ return `<div class="card item"><div class="row"><h4>${E(d.title)}</h4>${badge(c&&d.status==='open'?'sent':d.status)}</div>${d.body?`<p>${E(d.body)}</p>`:''}${p.amount?`<div class="kv"><span>المبلغ</span><b>${money(p.amount)}${est(p)}</b></div>`:''}${p.what?`<div class="kv"><span>نوع القرار</span><b>${E(p.what)}</b></div>`:''}${cta(d,'افتح اللينك')}${acts}</div>`}
 function inputCard(i){
  const c=cmdFor(i.key,['message']);const f=(i.payload&&i.payload.fields)||[];
  let acts='';
