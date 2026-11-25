@@ -106,3 +106,9 @@ label{display:block;color:var(--mut);font-size:13px;margin:10px 0 6px}
 }
 
 .btn.cta{background:linear-gradient(90deg,var(--gold),var(--gold2));color:#1a1405;font-weight:900;border:0;font-size:15px;padding:11px 18px;box-shadow:0 0 18px rgba(232,195,106,.35)}
+
+.modal .m.det{max-width:620px;max-height:88vh;overflow:auto}
+.det h5{color:var(--gold);margin:14px 0 6px;font-size:15px}
+.det .steps{padding-inline-start:22px;line-height:2;font-size:14px;color:var(--text)}
+.det .cb{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
+.det .cb pre{white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.8;margin-top:8px;user-select:all}
