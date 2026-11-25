@@ -56,7 +56,7 @@ async function load(){
  }catch(e){state.ok=false;console.warn(e)}
 }
 function route(){return (location.hash||'#today').slice(1)||'today'}
-function pendingCount(){return byKind('decision').filter(d=>d.status==='open'&&!state.cmds.some(c=>c.ref===d.key&&['approval','reject'].includes(c.kind))).length}
+function pendingCount(){return byKind('decision').filter(d=>d.status==='open'&&!state.cmds.some(c=>c.ref===d.key&&['approval','reject'].includes(c.kind))).length+byKind('input').filter(d=>d.status==='open'&&!state.cmds.some(c=>c.ref===d.key)).length}
 function shell(inner,title){
  const r=route();
  const nav=TABS.map(([k,n,ic])=>`<a href="#${k}" class="${r===k?'on':''}"><span class="ic">${ic}</span>${n}${k==='approvals'&&pendingCount()?`<span class="bd">${AR(pendingCount())}</span>`:''}</a>`).join('');
@@ -71,9 +71,15 @@ function decisionCard(d){
  const c=cmdFor(d.key,['approval','reject']);
  const p=d.payload||{};
  let acts='';
- if(d.status==='open'&&!c) acts=`<div class="btns"><button class="btn ok" data-a="approve" data-k="${E(d.key)}">موافق</button><button class="btn no" data-a="reject" data-k="${E(d.key)}">رفض</button></div>`;
- else if(c) acts=`<div class="note">${c.kind==='approval'?'وافقت':'رفضت'} · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
+ if(d.status==='open'&&!c) acts=`<div class="btns">${(p.options&&p.options.length)?p.options.map(o=>`<button class="btn ok" data-a="choose" data-k="${E(d.key)}" data-v="${E(o)}">${E(o)}</button>`).join(''):`<button class="btn ok" data-a="approve" data-k="${E(d.key)}">موافق</button>`}<button class="btn no" data-a="reject" data-k="${E(d.key)}">رفض</button></div>`;
+ else if(c) acts=`<div class="note">${c.kind==='approval'?'وافقت':'رفضت'}${c.body?' ('+E(c.body)+')':''} · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
  return `<div class="card item"><div class="row"><h4>${E(d.title)}</h4>${badge(c&&d.status==='open'?'sent':d.status)}</div>${d.body?`<p>${E(d.body)}</p>`:''}${p.amount?`<div class="kv"><span>المبلغ</span><b>${money(p.amount)}${est(p)}</b></div>`:''}${p.what?`<div class="kv"><span>نوع القرار</span><b>${E(p.what)}</b></div>`:''}${d.link?`<div class="btns"><a class="btn" href="${E(d.link)}" target="_blank" rel="noopener">اتفرج الأول ↗</a></div>`:''}${acts}</div>`}
+function inputCard(i){
+ const c=cmdFor(i.key,['message']);const f=(i.payload&&i.payload.fields)||[];
+ let acts='';
+ if(i.status==='open'&&!c) acts=f.map((x,n)=>`<label>${E(x.label)}</label><input data-f="${n}" data-key="${E(i.key)}" ${x.inputmode?'inputmode="'+E(x.inputmode)+'"':''} autocomplete="off">`).join('')+`<div class="btns"><button class="btn gold" data-a="submit" data-k="${E(i.key)}">ابعت</button></div>`;
+ else if(c) acts=`<div class="note">اتبعت · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
+ return itemCard(i,acts).replace(/(<span class="badge b-open">)[^<]*/,'$1مستني بياناتك')}
 function taskHim(t){
  const c=cmdFor(t.key,['task_done','task_help']);
  let acts='';
@@ -94,6 +100,7 @@ const VIEWS={
   <div class="grid g4 k"><div class="card kpi"><div class="v">${AR(dec.length)}</div><div class="l">قرارات مستنياك</div></div><div class="card kpi"><div class="v">${AR(mine.length)}</div><div class="l">مهام عليك</div></div><div class="card kpi"><div class="v">${AR(run.length)}</div><div class="l">شغال دلوقتي</div></div><div class="card kpi"><div class="v">${AR(lines.length)}</div><div class="l">خطوط شغل</div></div></div>
   <div class="sec">مستني موافقتك <span class="c">${AR(dec.length)}</span></div>
   <div class="grid g2">${dec.map(decisionCard).join('')||'<div class="empty">مفيش قرارات واقفة عليك دلوقتي</div>'}</div>
+  ${byKind('input').filter(x=>x.status==='open'&&!cmdFor(x.key,['message'])).length?`<div class="sec">محتاجين منك بيانات</div><div class="grid g2">${byKind('input').filter(x=>x.status==='open'&&!cmdFor(x.key,['message'])).map(inputCard).join('')}</div>`:''}
   <div class="sec">مطلوب منك <span class="c">${AR(mine.length)}</span></div>
   <div class="grid g2">${mine.map(taskHim).join('')||'<div class="empty">مفيش مهام عليك دلوقتي</div>'}</div>
   <div class="sec">إحنا شغالين دلوقتي <span class="c">${AR(run.length)}</span></div>
@@ -104,6 +111,7 @@ const VIEWS={
   const rest=all.filter(d=>!open.includes(d));
   return `<div class="note" style="margin:0 0 14px">كل فلوس أو نشر لازم يعدي من هنا بزرار موافق. الموافقة هنا على القرار نفسه، وأي دفع أو إعلان لايف بيتأكد معاك في الشات قبل التنفيذ.</div>
   <div class="sec">مستنية قرارك <span class="c">${AR(open.length)}</span></div><div class="grid g2">${open.map(decisionCard).join('')||'<div class="empty">مفيش حاجة مستنية</div>'}</div>
+  <div class="sec">محتاجين منك بيانات <span class="c">${AR(byKind('input').filter(x=>x.status==='open'&&!cmdFor(x.key,['message'])).length)}</span></div><div class="grid g2">${byKind('input').map(inputCard).join('')||'<div class="empty">مفيش</div>'}</div>
   <div class="sec">اتقرر قبل كده</div><div class="grid g2">${rest.map(decisionCard).join('')||'<div class="empty">لسه مفيش</div>'}</div>`},
  board(){
   const us=byKind('task_us'),him=byKind('task_him');
@@ -143,6 +151,10 @@ function bind(){
  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{
   const a=b.dataset.a,k=b.dataset.k,it=state.items.find(i=>i.key===k)||{};
   if(a==='approve'){const r=await confirmBox('تأكيد الموافقة','هتوافق على: '+it.title+'. الموافقة دي على القرار بس، وأي دفع أو نشر لايف هيتأكد معاك في الشات قبل التنفيذ.','موافق',true);if(r.ok)await send('approval',k,r.note)}
+  else if(a==='choose'){const v=b.dataset.v;const r=await confirmBox('تأكيد الاختيار','اختيارك: '+v+' ('+it.title+'). ده اختيار بس، وأي دفع أو نشر بيتأكد معاك في الشات.','تأكيد',true);if(r.ok)await send('approval',k,'اختار: '+v+(r.note?' | '+r.note:''))}
+  else if(a==='submit'){const f=((it.payload||{}).fields)||[];const vals=f.map((x,n)=>{const el=document.querySelector(`[data-key="${k}"][data-f="${n}"]`);return [x.label,(el&&el.value||'').trim()]});
+   if(vals.some(v=>!v[1])){toast('كمل كل الخانات الأول');return}
+   await send('message',k,vals.map(v=>v[0]+': '+v[1]).join('\n'))}
   else if(a==='reject'){const r=await confirmBox('تأكيد الرفض','هترفض: '+it.title,'رفض',true);if(r.ok)await send('reject',k,r.note)}
   else if(a==='task_done'){const r=await confirmBox('خلصت؟','هنسجل إنك خلصت: '+it.title,'خلصت',true);if(r.ok)await send('task_done',k,r.note)}
   else if(a==='task_help'){const r=await confirmBox('محتاج مساعدة','اكتب لنا واقف فين','ابعت',true);if(r.ok)await send('task_help',k,r.note)}});
