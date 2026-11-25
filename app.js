@@ -65,8 +65,16 @@ function shell(inner,title){
  <div class="foot"><div>آخر تحديث للبيانات: ${snap&&snap.at?fmtTime(snap.at):'لسه ما اتحدثتش'}</div><button class="btn" style="margin-top:8px;width:100%;justify-content:center" id="out">خروج</button></div></aside>
  <main class="main"><div class="top"><h1>${title}</h1><div class="sync"><span class="dot ${state.ok?'':'off'}"></span>${state.ok?'متصل':'مفيش اتصال'}${state.last?' · '+fmtTime(state.last):''}</div></div>${inner}</main></div>`;
 }
+function det(i){const d=i.payload&&i.payload.details;return d?`<div class="btns"><button class="btn" data-a="details" data-k="${E(i.key)}">📋 التفاصيل والخطوات</button></div>`:''}
+function showDetails(it){const d=(it.payload||{}).details||{};const m=$('#modal');
+ const steps=(d.steps||[]).length?`<h5>الخطوات</h5><ol class="steps">${d.steps.map(x=>`<li>${E(x)}</li>`).join('')}</ol>`:'';
+ const blocks=(d.blocks||[]).map((b,n)=>`<div class="cb"><div class="row"><b>${E(b.label||'')}</b><button class="btn" data-copy="${n}">نسخ</button></div><pre id="cb${n}">${E(b.text||'')}</pre></div>`).join('');
+ const files=(d.files||[]).length?`<h5>ملفات للتحميل</h5><div class="btns">${d.files.map(f=>`<a class="btn" href="${E(f.url)}" target="_blank" rel="noopener" download>⬇ ${E(f.name||'ملف')}</a>`).join('')}</div>`:'';
+ m.innerHTML=`<div class="m det"><h3>${E(it.title)}</h3>${it.body?`<p>${E(it.body)}</p>`:''}${steps}${blocks}${files}${it.link?`<div class="btns"><a class="btn cta" href="${E(it.link)}" target="_blank" rel="noopener">${E((it.payload&&it.payload.cta)||'افتح اللينك')} ↗</a></div>`:''}<div class="btns"><button class="btn" id="dx">إغلاق</button></div></div>`;m.hidden=false;
+ $('#dx').onclick=()=>{m.hidden=true};m.onclick=e=>{if(e.target===m)m.hidden=true};
+ m.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{const t=d.blocks[+b.dataset.copy].text||'';try{await navigator.clipboard.writeText(t)}catch(e){const r=document.createRange();r.selectNodeContents($('#cb'+b.dataset.copy));const sl=getSelection();sl.removeAllRanges();sl.addRange(r);document.execCommand('copy')}b.textContent='اتنسخ ✓';setTimeout(()=>b.textContent='نسخ',1500)})}
 function cta(i,def){if(!i.link)return'';const l=(i.payload&&i.payload.cta)||def;return `<div class="btns"><a class="btn cta" href="${E(i.link)}" target="_blank" rel="noopener">${E(l)} ↗</a></div>`}
-function itemCard(i,extra){return `<div class="card item"><div class="row"><h4>${E(i.title)}</h4>${badge(i.status)}</div>${i.body?`<p>${E(i.body)}</p>`:''}${extra||''}${cta(i,'افتح اللينك')}</div>`}
+function itemCard(i,extra){return `<div class="card item"><div class="row"><h4>${E(i.title)}</h4>${badge(i.status)}</div>${i.body?`<p>${E(i.body)}</p>`:''}${extra||''}${det(i)}${cta(i,'افتح اللينك')}</div>`}
 function cmdFor(ref,kinds){return state.cmds.find(c=>c.ref===ref&&kinds.includes(c.kind))}
 function decisionCard(d){
  const c=cmdFor(d.key,['approval','reject']);
@@ -74,7 +82,7 @@ function decisionCard(d){
  let acts='';
  if(d.status==='open'&&!c) acts=`<div class="btns">${(p.options&&p.options.length)?p.options.map(o=>`<button class="btn ok" data-a="choose" data-k="${E(d.key)}" data-v="${E(o)}">${E(o)}</button>`).join(''):`<button class="btn ok" data-a="approve" data-k="${E(d.key)}">موافق</button>`}<button class="btn no" data-a="reject" data-k="${E(d.key)}">رفض</button></div>`;
  else if(c) acts=`<div class="note">${c.kind==='approval'?'وافقت':'رفضت'}${c.body?' ('+E(c.body)+')':''} · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
- return `<div class="card item"><div class="row"><h4>${E(d.title)}</h4>${badge(c&&d.status==='open'?'sent':d.status)}</div>${d.body?`<p>${E(d.body)}</p>`:''}${p.amount?`<div class="kv"><span>المبلغ</span><b>${money(p.amount)}${est(p)}</b></div>`:''}${p.what?`<div class="kv"><span>نوع القرار</span><b>${E(p.what)}</b></div>`:''}${cta(d,'افتح اللينك')}${acts}</div>`}
+ return `<div class="card item"><div class="row"><h4>${E(d.title)}</h4>${badge(c&&d.status==='open'?'sent':d.status)}</div>${d.body?`<p>${E(d.body)}</p>`:''}${p.amount?`<div class="kv"><span>المبلغ</span><b>${money(p.amount)}${est(p)}</b></div>`:''}${p.what?`<div class="kv"><span>نوع القرار</span><b>${E(p.what)}</b></div>`:''}${det(d)}${cta(d,'افتح اللينك')}${acts}</div>`}
 function inputCard(i){
  const c=cmdFor(i.key,['message']);const f=(i.payload&&i.payload.fields)||[];
  let acts='';
@@ -151,6 +159,7 @@ function bind(){
  const out=$('#out');if(out)out.onclick=async()=>{await sb.auth.signOut();state.session=null;loginView()};
  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{
   const a=b.dataset.a,k=b.dataset.k,it=state.items.find(i=>i.key===k)||{};
+  if(a==='details'){showDetails(it);return}
   if(a==='approve'){const r=await confirmBox('تأكيد الموافقة','هتوافق على: '+it.title+'. الموافقة دي على القرار بس، وأي دفع أو نشر لايف هيتأكد معاك في الشات قبل التنفيذ.','موافق',true);if(r.ok)await send('approval',k,r.note)}
   else if(a==='choose'){const v=b.dataset.v;const r=await confirmBox('تأكيد الاختيار','اختيارك: '+v+' ('+it.title+'). ده اختيار بس، وأي دفع أو نشر بيتأكد معاك في الشات.','تأكيد',true);if(r.ok)await send('approval',k,'اختار: '+v+(r.note?' | '+r.note:''))}
   else if(a==='submit'){const f=((it.payload||{}).fields)||[];const vals=f.map((x,n)=>{const el=document.querySelector(`[data-key="${k}"][data-f="${n}"]`);return [x.label,(el&&el.value||'').trim()]});
