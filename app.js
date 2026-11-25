@@ -125,7 +125,7 @@ const VIEWS={
   const lines=byKind('line');
   const rows=state.cmds.map(c=>`<div class="card item"><div class="row"><h4>${E({command:'أمر',approval:'موافقة',reject:'رفض',task_done:'خلصت مهمة',task_help:'طلب مساعدة',message:'رسالة'}[c.kind]||c.kind)}${c.line?' · '+E(c.line):''}</h4>${badge(c.status)}</div>${c.body?`<p>${E(c.body)}</p>`:''}${c.ref?`<div class="note">${E((state.items.find(i=>i.key===c.ref)||{}).title||c.ref)}</div>`:''}<div class="note">${fmtTime(c.created_at)}${c.seen_at?' · اتشاف '+fmtTime(c.seen_at):''}${c.done_at?' · اتنفذ '+fmtTime(c.done_at):''}</div>${c.reply?`<div class="kv"><span>رد الفريق</span><b style="text-align:start">${E(c.reply)}</b></div>`:''}</div>`).join('');
   return `<div class="card"><h3>⌘ أمر جديد للفريق</h3><label>الخط</label><select id="cl"><option value="">عام</option>${lines.map(l=>`<option>${E(l.title)}</option>`).join('')}</select><label>الأمر</label><textarea id="ct" placeholder="اكتب اللي عايزه بالعربي"></textarea><div class="btns"><button class="btn gold" id="cs">ابعت</button></div>
-  <div class="note">الأمر بيتسجل وبيتقرا من الفريق كل ٥ دقايق تقريبا، مش لحظي. الحالة: اتبعت ثم اتشاف ثم اتنفذ. لو مستعجل ابعتلنا على واتساب. الأوامر هنا مفيهاش دفع ولا نشر، دول بس بزرار موافق.</div></div>
+  <div class="note">الأمر بيتسجل وبيتقرا من الفريق كل ١٠ دقايق تقريبا، مش لحظي. الحالة: اتبعت ثم اتشاف ثم اتنفذ. لو مستعجل ابعتلنا على واتساب. الأوامر هنا مفيهاش دفع ولا نشر، دول بس بزرار موافق.</div></div>
   <div class="sec">آخر الأوامر</div><div class="grid g2">${rows||'<div class="empty">لسه ما بعتش حاجة</div>'}</div>`}
 };
 const TITLES=Object.fromEntries(TABS.map(t=>[t[0],t[1]]));
