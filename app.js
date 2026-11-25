@@ -10,7 +10,7 @@ const state={items:[],cmds:[],meta:{},ok:true,last:null,session:null};
 const TABS=[
  ['today','النهارده','☀'],['approvals','موافقات','✔'],['board','مين بيعمل إيه','⇄'],['lines','خطوط الشغل','☰'],
  ['trade','التجارة','▣'],['orders','الأوردرات','📦'],['money','الفلوس','◎'],['commands','أوامر','⌘']];
-const ST={run:'شغال',wait:'مستني',block:'واقف',pause:'متوقف',done:'خلص',open:'مستني قرارك',approved:'اتوافق',rejected:'اترفض',help:'محتاج مساعدة',listed:'منشور',waiting_price:'مستني سعرك',sent:'اتبعت',seen:'اتشاف',pending:'مستني',draft:'مسودة'};
+const ST={run:'شغال',wait:'مستني',block:'واقف',pause:'متوقف',done:'خلص',open:'مستني قرارك',approved:'اتوافق',rejected:'اترفض',help:'محتاج مساعدة',listed:'اتحط للمراجعة',waiting_price:'مستني سعرك',sent:'اتبعت',seen:'اتشاف',pending:'مستني',draft:'مسودة'};
 const badge=s=>`<span class="badge b-${E(s)}">${E(ST[s]||s||'-')}</span>`;
 const est=p=>p&&p.estimate?'<span class="est">تقديري</span>':'';
 const money=n=>n==null||n===''?'-':AR(n)+' جنيه';
@@ -79,7 +79,7 @@ function taskHim(t){
  let acts='';
  if(t.status==='open'&&!c) acts=`<div class="btns"><button class="btn ok" data-a="task_done" data-k="${E(t.key)}">خلصت</button><button class="btn" data-a="task_help" data-k="${E(t.key)}">محتاج مساعدة</button></div>`;
  else if(c) acts=`<div class="note">${c.kind==='task_done'?'قلت خلصت':'طلبت مساعدة'} · ${fmtTime(c.created_at)} · ${badge(c.status)}${c.reply?'<br>رد الفريق: '+E(c.reply):''}</div>`;
- return itemCard(t,acts)}
+ return itemCard(t,acts).replace(/(<span class="badge b-open">)[^<]*/,'$1عليك')}
 function goalBlock(){
  const g=meta('goal')||{target:1000000,earned:0};const pct=Math.max(0,Math.min(100,(g.earned/g.target)*100));
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
