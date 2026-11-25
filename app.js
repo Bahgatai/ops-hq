@@ -66,10 +66,11 @@ function shell(inner,title){
  <main class="main"><div class="top"><h1>${title}</h1><div class="sync"><span class="dot ${state.ok?'':'off'}"></span>${state.ok?'متصل':'مفيش اتصال'}${state.last?' · '+fmtTime(state.last):''}</div></div>${inner}</main></div>`;
 }
 function det(i){const d=i.payload&&i.payload.details;return d?`<div class="btns"><button class="btn" data-a="details" data-k="${E(i.key)}">📋 التفاصيل والخطوات</button></div>`:''}
-function showDetails(it){const d=(it.payload||{}).details||{};const m=$('#modal');
+async function loadFiles(){if(window.OPS_FILES&&window.OPS_FILES.g4)return;for(const n of ['files-a.js','files-b.js'])await new Promise(r=>{const x=document.createElement('script');x.src=n;x.onload=r;x.onerror=r;document.head.appendChild(x)})}
+async function showDetails(it){const d=(it.payload||{}).details||{};const m=$('#modal');if((d.files||[]).some(f=>f.file))await loadFiles();
  const steps=(d.steps||[]).length?`<h5>الخطوات</h5><ol class="steps">${d.steps.map(x=>`<li>${E(x)}</li>`).join('')}</ol>`:'';
  const blocks=(d.blocks||[]).map((b,n)=>`<div class="cb"><div class="row"><b>${E(b.label||'')}</b><button class="btn" data-copy="${n}">نسخ</button></div><pre id="cb${n}">${E(b.text||'')}</pre></div>`).join('');
- const files=(d.files||[]).length?`<h5>ملفات للتحميل</h5><div class="btns">${d.files.map(f=>`<a class="btn" href="${E(f.url)}" target="_blank" rel="noopener" download>⬇ ${E(f.name||'ملف')}</a>`).join('')}</div>`:'';
+ const files=(d.files||[]).length?`<h5>ملفات للتحميل</h5><div class="btns">${d.files.map(f=>`<a class="btn" href="${f.file?((window.OPS_FILES||{})[f.file]||'#'):E(f.url)}" ${f.file?'':'target="_blank" rel="noopener" '}download="${E(f.save||f.name||'file')}">⬇ ${E(f.name||'ملف')}</a>`).join('')}</div>`:'';
  m.innerHTML=`<div class="m det"><h3>${E(it.title)}</h3>${it.body?`<p>${E(it.body)}</p>`:''}${steps}${blocks}${files}${it.link?`<div class="btns"><a class="btn cta" href="${E(it.link)}" target="_blank" rel="noopener">${E((it.payload&&it.payload.cta)||'افتح اللينك')} ↗</a></div>`:''}<div class="btns"><button class="btn" id="dx">إغلاق</button></div></div>`;m.hidden=false;
  $('#dx').onclick=()=>{m.hidden=true};m.onclick=e=>{if(e.target===m)m.hidden=true};
  m.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{const t=d.blocks[+b.dataset.copy].text||'';try{await navigator.clipboard.writeText(t)}catch(e){const r=document.createRange();r.selectNodeContents($('#cb'+b.dataset.copy));const sl=getSelection();sl.removeAllRanges();sl.addRange(r);document.execCommand('copy')}b.textContent='اتنسخ ✓';setTimeout(()=>b.textContent='نسخ',1500)})}
