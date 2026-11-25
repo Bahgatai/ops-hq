@@ -9,7 +9,7 @@ const AR=n=>Number(n).toLocaleString('ar-EG');
 const state={items:[],cmds:[],meta:{},ok:true,last:null,session:null};
 const TABS=[
  ['today','النهارده','☀'],['approvals','موافقات','✔'],['board','مين بيعمل إيه','⇄'],['lines','خطوط الشغل','☰'],
- ['trade','التجارة','▣'],['orders','الأوردرات','📦'],['money','الفلوس','◎'],['commands','أوامر','⌘']];
+ ['trade','التجارة','▣'],['orders','الأوردرات','📦'],['money','الفلوس','◎'],['commands','أوامر','⌘'],['escape','خطة الهروب','🛡']];
 const ST={run:'شغال',wait:'مستني',block:'واقف',pause:'متوقف',done:'خلص',open:'مستني قرارك',approved:'اتوافق',rejected:'اترفض',help:'محتاج مساعدة',listed:'اتحط للمراجعة',waiting_price:'مستني سعرك',sent:'اتبعت',seen:'اتشاف',pending:'مستني',draft:'مسودة'};
 const badge=s=>`<span class="badge b-${E(s)}">${E(ST[s]||s||'-')}</span>`;
 const est=p=>p&&p.estimate?'<span class="est">تقديري</span>':'';
@@ -101,6 +101,20 @@ function goalBlock(){
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
  return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
 const VIEWS={
+ escape(){const its=byKind('escape');
+  const G={1:'١. حسابات جيميل (الأول)',2:'٢. الدومينات',3:'٣. الفلوس والعمل',4:'٤. أدوات التقنية',5:'٥. السوشيال'};
+  const STEPS=['غيّر الباسورد','اعمل خروج من كل الأجهزة','راجع إيميل ورقم الاسترجاع','راجع التحقق بخطوتين (2FA)','راجع آخر نشاط','شيل أي جهاز أو تطبيق مش عارفه'];
+  const ld=k=>{try{return JSON.parse(localStorage.getItem('esc:'+k)||'[]')}catch(e){return []}};
+  let tot=0,dn=0;its.forEach(i=>{tot+=STEPS.length;dn+=ld(i.key).length});
+  const blocks=[1,2,3,4,5].map(g=>{const l=its.filter(i=>((i.payload||{}).g||3)===g);if(!l.length)return '';
+   return `<div class="sec">${G[g]} <span class="c">${AR(l.length)}</span></div><div class="grid g2">${l.map(i=>{const p=i.payload||{};const d=ld(i.key);
+    return `<div class="card"><b>${E(i.title)}</b>${p.id?`<div class="note">${E(p.id)}</div>`:''}
+    <div style="margin:10px 0">${i.link?`<a class="btn gold" target="_blank" rel="noopener" href="${E(i.link)}">${p.exact?'افتح صفحة الأمان':'افتح الموقع'}</a>`:'<span class="est">مفيش رابط</span>'}</div>
+    ${p.note?`<div class="note">${E(p.note)}</div>`:''}
+    ${STEPS.map((t,n)=>`<label style="display:flex;gap:10px;align-items:center;padding:6px 0;font-size:16px"><input type="checkbox" data-esc="${E(i.key)}" data-n="${n}" ${d.includes(n)?'checked':''} style="width:22px;height:22px"> ${E(t)}</label>`).join('')}</div>`}).join('')}</div>`}).join('');
+  return `<div class="hero"><div><h2>خطة الهروب</h2><p>لو بعتّ «اهرب» ننفّذ الخطة دي. افتح كل حساب بالترتيب وعلّم كل خطوة بعد ما تخلصها. الباسوردات مش متخزنة هنا خالص.</p><p class="note">بعد ما تغيّر باسورد حساب، قولنا عشان نحدّث الخزنة برابط آمن، من غير ما تكتبه في الشات. العلامات بتتحفظ في المتصفح ده بس.</p></div></div>
+  <div class="goal"><div class="bar"><i style="width:${tot?dn/tot*100:0}%"></i></div><div class="nums"><span><b>${AR(dn)}</b> من ${AR(tot)} خطوة خلصت</span></div></div>${blocks||'<div class="empty">القائمة لسه بتتحمل</div>'}`},
+
  today(){
   const dec=byKind('decision').filter(d=>d.status==='open'&&!cmdFor(d.key,['approval','reject']));
   const mine=byKind('task_him').filter(t=>t.status==='open'&&!cmdFor(t.key,['task_done','task_help']));
@@ -172,7 +186,10 @@ function bind(){
  const cs=$('#cs');if(cs)cs.onclick=async()=>{const t=$('#ct').value.trim();if(!t){toast('اكتب الأمر الأول');return}
   cs.disabled=true;const ok=await send('command',null,t,$('#cl').value);if(!ok)cs.disabled=false};
 }
-function render(){const r=VIEWS[route()]?route():'today';const y=window.scrollY;$('#app').innerHTML=shell(VIEWS[r](),TITLES[r]);bind();window.scrollTo(0,y)}
+function bindEsc(){
+ document.querySelectorAll('[data-esc]').forEach(c=>c.onchange=()=>{const k=c.dataset.esc,n=+c.dataset.n;let a;try{a=JSON.parse(localStorage.getItem('esc:'+k)||'[]')}catch(e){a=[]}a=a.filter(x=>x!==n);if(c.checked)a.push(n);localStorage.setItem('esc:'+k,JSON.stringify(a));render()});
+}
+function render(){const r=VIEWS[route()]?route():'today';const y=window.scrollY;$('#app').innerHTML=shell(VIEWS[r](),TITLES[r]);bind();bindEsc();window.scrollTo(0,y)}
 let timer;
 async function start(){await load();render();clearInterval(timer);timer=setInterval(async()=>{if($('#modal').hidden===false||(document.activeElement&&['TEXTAREA','INPUT','SELECT'].includes(document.activeElement.tagName)))return;await load();render()},20000)}
 window.addEventListener('hashchange',()=>{window.scrollTo(0,0);if(state.session)render()});
