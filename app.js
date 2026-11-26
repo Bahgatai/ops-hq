@@ -15,7 +15,7 @@ TEAM_SVG.nada="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"
 const ALL=[MGR].concat(TEAM);
 const TABS=[
  ['today','النهارده','☀'],['approvals','موافقات','✔'],['board','مين بيعمل إيه','⇄'],['lines','خطوط الشغل','☰'],
- ['trade','التجارة','▣'],['orders','الأوردرات','📦'],['money','الفلوس','◎'],['commands','أوامر','⌘'],['escape','خطة الهروب','🛡'],['team','الفريق','👥']];
+ ['trade','التجارة','▣'],['orders','الأوردرات','📦'],['money','الفلوس','◎'],['commands','أوامر','⌘'],['escape','خطة الهروب','🛡'],['team','الفريق','👥'],['talk','كلّمني','🎙']];
 const ST={run:'شغال',wait:'مستني',block:'واقف',pause:'متوقف',done:'خلص',open:'مستني قرارك',approved:'اتوافق',rejected:'اترفض',help:'محتاج مساعدة',listed:'اتحط للمراجعة',waiting_price:'مستني سعرك',sent:'اتبعت',seen:'اتشاف',pending:'مستني',draft:'مسودة'};
 const badge=s=>`<span class="badge b-${E(s)}">${E(ST[s]||s||'-')}</span>`;
 const est=p=>p&&p.estimate?'<span class="est">تقديري</span>':'';
@@ -108,6 +108,8 @@ function goalBlock(){
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
  return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
 const VIEWS={
+ talk(){return `<div class="card"><h3>🎙 كلّمني بالصوت</h3><p>بتكلم <b>مساعد ذكاء اصطناعي (Gemini)</b>، مش المنسّقة ولا أي وكيل في الفريق مباشرة. المحادثة كلام وبس: المساعد مبينفذش أوامر، مش شايف بيانات الموقع، ومش بيحفظ حاجة. صوتك بيروح لجوجل (Gemini) علشان يرد.</p>
+ <div class="btns"><button class="btn gold" id="mic">ابدأ المحادثة 🎙</button><button class="btn" id="micx" style="display:none">وقّف</button></div><div class="note" id="mst">جاهز. الزرار بيطلب إذن الميكروفون.</div><div class="sec">النص</div><div class="card" id="mlog" style="min-height:120px;white-space:pre-wrap"></div></div>`},
  team(){const T=(state.meta.team||{}).value||null;const ag=T&&T.agents||{};const upd=T&&T.updated;
   const id=sub();const a=ALL.find(x=>x.k===id);
   if(a){const d=ag[a.k]||{};const ins=state.cmds.find(c=>c.kind==='command'&&c.ref==='agent:'+a.k&&c.line==='تعليمات');const msgs=state.cmds.filter(c=>c.kind==='message'&&c.ref==='agent:'+a.k);const wk=state.cmds.find(c=>c.kind==='command'&&c.ref==='agent:'+a.k&&c.line==='اشتغل');
@@ -183,6 +185,38 @@ const VIEWS={
   <div class="sec">آخر الأوامر</div><div class="grid g2">${rows||'<div class="empty">لسه ما بعتش حاجة</div>'}</div>`}
 };
 const TITLES=Object.fromEntries(TABS.map(t=>[t[0],t[1]]));
+
+let VC=null;
+async function voiceStart(){
+ const st=t=>{$('#mst').textContent=t},log=(w,t)=>{const l=$('#mlog');if(!t)return;l.textContent+=(l.textContent&&!l.textContent.endsWith('\n')?'':'')+w+': '+t+'\n'};
+ try{
+  st('بطلب التوكن...');
+  const {data:ss}=await sb.auth.getSession();
+  const r=await fetch(SB_URL+'/functions/v1/gemini-token',{method:'POST',headers:{Authorization:'Bearer '+ss.session.access_token,apikey:SB_KEY,'Content-Type':'application/json'},body:'{}'});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.token){st('ماقدرتش أبدأ: '+(j.error||r.status)+(j.detail?' ('+j.detail+')':''));return}
+  st('بطلب الميكروفون...');
+  const mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  const ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+  const out=new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000});
+  const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(j.token));
+  VC={ws,mic,ac,out,t:0};
+  ws.onopen=()=>{ws.send(JSON.stringify({setup:{model:'models/'+j.model,generationConfig:{responseModalities:['AUDIO']},systemInstruction:{parts:[{text:'انت مساعد صوتي ذكاء اصطناعي اسمه مساعد مركز القيادة. اتكلم بالعامية المصرية بجمل قصيرة. ده كلام وبس: متنفذش أوامر ومتدّعيش إنك شايف بيانات الموقع أو بتنفذ حاجة. لو طلبوا تنفيذ قول إنهم يكتبوه في صفحة الفريق أو الأوامر. وضّح لو سألوك إنك مساعد ذكاء اصطناعي مش شخص ومش المنسّقة.'}]},inputAudioTranscription:{},outputAudioTranscription:{}}}))};
+  ws.onmessage=async ev=>{let m;try{m=JSON.parse(ev.data instanceof Blob?await ev.data.text():ev.data)}catch(e){return}
+   if(m.setupComplete){st('شغال. اتكلم دلوقتي.');const src=ac.createMediaStreamSource(mic);const pr=ac.createScriptProcessor(4096,1,1);pr.onaudioprocess=e=>{if(ws.readyState!==1)return;const f=e.inputBuffer.getChannelData(0),b=new Int16Array(f.length);for(let i=0;i<f.length;i++){b[i]=Math.max(-1,Math.min(1,f[i]))*32767}let s='',u=new Uint8Array(b.buffer);for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);ws.send(JSON.stringify({realtimeInput:{audio:{data:btoa(s),mimeType:'audio/pcm;rate=16000'}}}))};src.connect(pr);pr.connect(ac.destination);VC.pr=pr}
+   const sc=m.serverContent;if(!sc)return;
+   if(sc.inputTranscription)log('انت',sc.inputTranscription.text);
+   if(sc.outputTranscription)log('المساعد',sc.outputTranscription.text);
+   if(sc.interrupted){VC.t=0}
+   const ps=sc.modelTurn&&sc.modelTurn.parts||[];for(const p of ps){if(p.inlineData&&p.inlineData.data){const bin=atob(p.inlineData.data),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const d=new Int16Array(u.buffer),f=new Float32Array(d.length);for(let i=0;i<d.length;i++)f[i]=d[i]/32768;const ab=out.createBuffer(1,f.length,24000);ab.copyToChannel(f,0);const bs=out.createBufferSource();bs.buffer=ab;bs.connect(out.destination);VC.t=Math.max(VC.t,out.currentTime);bs.start(VC.t);VC.t+=ab.duration}}
+  };
+  ws.onerror=()=>st('حصل خطأ في الاتصال');
+  ws.onclose=()=>{st('المحادثة اتقفلت');voiceStop(true)};
+  $('#mic').style.display='none';$('#micx').style.display='';
+ }catch(e){st('ماقدرتش أبدأ: '+(e.name==='NotAllowedError'?'الميكروفون اتمنع':e.message));voiceStop(true)}
+}
+function voiceStop(quiet){if(VC){try{VC.ws.close()}catch(e){}try{VC.pr&&VC.pr.disconnect()}catch(e){}try{VC.mic.getTracks().forEach(t=>t.stop())}catch(e){}try{VC.ac.close();VC.out.close()}catch(e){}VC=null}
+ const m=$('#mic'),x=$('#micx');if(m)m.style.display='';if(x)x.style.display='none';if(!quiet){const s=$('#mst');if(s)s.textContent='اتقفلت.'}}
 async function send(kind,ref,body,line){
  const {error}=await sb.from('ops_commands').insert({kind,ref:ref||null,body:body||null,line:line||null});
  if(error){toast('ماوصلش: '+error.message);return false}
@@ -205,6 +239,7 @@ function bind(){
   else if(a==='reject'){const r=await confirmBox('تأكيد الرفض','هترفض: '+it.title,'رفض',true);if(r.ok)await send('reject',k,r.note)}
   else if(a==='task_done'){const r=await confirmBox('خلصت؟','هنسجل إنك خلصت: '+it.title,'خلصت',true);if(r.ok)await send('task_done',k,r.note)}
   else if(a==='task_help'){const r=await confirmBox('محتاج مساعدة','اكتب لنا واقف فين','ابعت',true);if(r.ok)await send('task_help',k,r.note)}});
+ const mic=$('#mic');if(mic){mic.onclick=voiceStart;$('#micx').onclick=()=>voiceStop()}
  const tis=$('#tis');if(tis)tis.onclick=async()=>{const t=$('#ti').value.trim();if(!t){toast('التعليمات فاضية');return}tis.disabled=true;const ok=await send('command','agent:'+tis.dataset.agent,'تعليمات: '+t,'تعليمات');if(!ok)tis.disabled=false};
  const tw=$('#tw');if(tw)tw.onclick=async()=>{const r=await confirmBox('اشتغل','هيتسجل أمر لـ'+TEAM.find(x=>x.k===tw.dataset.agent).n+' يولد مهام لنفسه وينفذها بدون دفع. التنفيذ بيبدأ بعد وصول الأمر (دقايق). تكمل؟','ابعت');if(!r.ok)return;tw.disabled=true;const ok=await send('command','agent:'+tw.dataset.agent,'اشتغل: ولّد قايمة مهام لنفسك من مجالك وابدأ نفّذها بدون دفع ومحاولة واحدة لكل خطوة','اشتغل');if(!ok)tw.disabled=false};
  const ts=$('#ts');if(ts)ts.onclick=async()=>{const t=$('#tm').value.trim();if(!t){toast('اكتب الرسالة الأول');return}ts.disabled=true;const ok=await send('message','agent:'+ts.dataset.agent,t,'الفريق');if(!ok)ts.disabled=false};
@@ -214,9 +249,9 @@ function bind(){
 function bindEsc(){
  document.querySelectorAll('[data-esc]').forEach(c=>c.onchange=()=>{const k=c.dataset.esc,n=+c.dataset.n;let a;try{a=JSON.parse(localStorage.getItem('esc:'+k)||'[]')}catch(e){a=[]}a=a.filter(x=>x!==n);if(c.checked)a.push(n);localStorage.setItem('esc:'+k,JSON.stringify(a));render()});
 }
-function render(){const r=VIEWS[route()]?route():'today';const y=window.scrollY;$('#app').innerHTML=shell(VIEWS[r](),TITLES[r]);bind();bindEsc();window.scrollTo(0,y)}
+function render(){if(VC&&route()!=='talk')voiceStop(true);const r=VIEWS[route()]?route():'today';const y=window.scrollY;$('#app').innerHTML=shell(VIEWS[r](),TITLES[r]);bind();bindEsc();window.scrollTo(0,y)}
 let timer;
-async function start(){await load();render();clearInterval(timer);timer=setInterval(async()=>{if($('#modal').hidden===false||(document.activeElement&&['TEXTAREA','INPUT','SELECT'].includes(document.activeElement.tagName)))return;await load();render()},20000)}
+async function start(){await load();render();clearInterval(timer);timer=setInterval(async()=>{if(route()==='talk'||VC||$('#modal').hidden===false||(document.activeElement&&['TEXTAREA','INPUT','SELECT'].includes(document.activeElement.tagName)))return;await load();render()},20000)}
 window.addEventListener('hashchange',()=>{window.scrollTo(0,0);if(state.session)render()});
 stars();
 (async()=>{const {data}=await sb.auth.getSession();
