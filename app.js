@@ -106,9 +106,10 @@ function goalBlock(){
 const VIEWS={
  team(){const T=(state.meta.team||{}).value||null;const ag=T&&T.agents||{};const upd=T&&T.updated;
   const id=sub();const a=TEAM.find(x=>x.k===id);
-  if(a){const d=ag[a.k]||{};const msgs=state.cmds.filter(c=>c.kind==='message'&&c.ref==='agent:'+a.k);
+  if(a){const d=ag[a.k]||{};const msgs=state.cmds.filter(c=>c.kind==='message'&&c.ref==='agent:'+a.k);const wk=state.cmds.find(c=>c.kind==='command'&&c.ref==='agent:'+a.k&&c.line==='اشتغل');
    return `<div class="btns" style="margin-bottom:14px"><a class="btn" href="#team">→ كل الفريق</a></div>
    <div class="card" style="display:flex;gap:16px;align-items:center;border-color:${a.c}66"><div style="width:96px;height:96px;flex:none">${TEAM_SVG[a.k]}</div><div><h4 style="font-size:20px">${a.n} <span class="est">وكيل AI</span></h4><div style="color:${a.c};font-weight:700">${a.r}</div><div class="note">آخر تحديث: ${upd?fmtTime(upd):'لسه'} · ${E(d.at||'')}</div></div></div>
+   <div class="card" style="margin-top:14px;border-color:${a.c}66"><div class="row"><h4>زرار اشتغل</h4>${wk?badge(wk.status):''}</div><p>بيسجل أمر لـ${a.n} يولّد قايمة مهام لنفسه من مجاله ويبدأ ينفذها بالقواعد: بدون دفع، ومحاولة واحدة لكل خطوة.</p>${wk?`<div class="note">${wk.status==='sent'?'تم الإرسال':wk.status==='seen'?'اتشاف، التنفيذ بيبدأ':'اتنفذ'} · ${fmtTime(wk.created_at)}</div>`:''}<div class="btns"><button class="btn gold" id="tw" data-agent="${a.k}"${wk&&wk.status==='sent'?' disabled':''}>${wk&&wk.status==='sent'?'تم الإرسال':'اشتغل'}</button></div><div class="note">التنفيذ مبيبدأش فوري: الأمر بيوصل للمنسق في الـpoll (حوالي ١٠ دقايق) وهو اللي بيوجّه ${a.n}. الحالة هنا: تم الإرسال ثم اتشاف ثم اتنفذ. ${a.n} وكيل ذكاء اصطناعي.</div></div>
    <div class="sec">بيعمل إيه دلوقتي</div><div class="card"><p>${E(d.now||'مفيش تقرير متاح.')}</p></div>
    <div class="sec">اللي قدامه <span class="c">${AR((d.next||[]).length)}</span></div><div class="card">${(d.next||[]).length?'<ul class="steps">'+d.next.map(x=>`<li>${E(x)}</li>`).join('')+'</ul>':'<p>مفيش.</p>'}</div>
    <div class="sec">اللي خلصه <span class="c">${AR((d.done||[]).length)}</span></div><div class="grid g2">${(d.done||[]).map(x=>`<div class="card"><p style="color:var(--text)">${E(x.t)}</p><div class="note">${E(x.at||'')}</div></div>`).join('')||'<div class="empty">مفيش سجل.</div>'}</div>
@@ -197,6 +198,7 @@ function bind(){
   else if(a==='reject'){const r=await confirmBox('تأكيد الرفض','هترفض: '+it.title,'رفض',true);if(r.ok)await send('reject',k,r.note)}
   else if(a==='task_done'){const r=await confirmBox('خلصت؟','هنسجل إنك خلصت: '+it.title,'خلصت',true);if(r.ok)await send('task_done',k,r.note)}
   else if(a==='task_help'){const r=await confirmBox('محتاج مساعدة','اكتب لنا واقف فين','ابعت',true);if(r.ok)await send('task_help',k,r.note)}});
+ const tw=$('#tw');if(tw)tw.onclick=async()=>{const r=await confirmBox('اشتغل','هيتسجل أمر لـ'+TEAM.find(x=>x.k===tw.dataset.agent).n+' يولد مهام لنفسه وينفذها بدون دفع. التنفيذ بيبدأ بعد وصول الأمر (دقايق). تكمل؟','ابعت');if(!r.ok)return;tw.disabled=true;const ok=await send('command','agent:'+tw.dataset.agent,'اشتغل: ولّد قايمة مهام لنفسك من مجالك وابدأ نفّذها بدون دفع ومحاولة واحدة لكل خطوة','اشتغل');if(!ok)tw.disabled=false};
  const ts=$('#ts');if(ts)ts.onclick=async()=>{const t=$('#tm').value.trim();if(!t){toast('اكتب الرسالة الأول');return}ts.disabled=true;const ok=await send('message','agent:'+ts.dataset.agent,t,'الفريق');if(!ok)ts.disabled=false};
  const cs=$('#cs');if(cs)cs.onclick=async()=>{const t=$('#ct').value.trim();if(!t){toast('اكتب الأمر الأول');return}
   cs.disabled=true;const ok=await send('command',null,t,$('#cl').value);if(!ok)cs.disabled=false};
