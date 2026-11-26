@@ -57,7 +57,8 @@ async function load(){
   state.items=a.data;state.meta=Object.fromEntries(b.data.map(r=>[r.key,r]));state.cmds=c.data;state.ok=true;state.last=new Date();
  }catch(e){state.ok=false;console.warn(e)}
 }
-function route(){return (location.hash||'#today').slice(1)||'today'}
+function route(){return ((location.hash||'#today').slice(1)||'today').split('/')[0]}
+function sub(){return decodeURIComponent(((location.hash||'').slice(1).split('/')[1])||'')}
 function pendingCount(){return byKind('decision').filter(d=>d.status==='open'&&!state.cmds.some(c=>c.ref===d.key&&['approval','reject'].includes(c.kind))).length+byKind('input').filter(d=>d.status==='open'&&!state.cmds.some(c=>c.ref===d.key)).length}
 function shell(inner,title){
  const r=route();
@@ -103,8 +104,18 @@ function goalBlock(){
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
  return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
 const VIEWS={
- team(){return `<div class="card" style="margin-bottom:16px"><p>الفريق ده تسعة وكلاء ذكاء اصطناعي (AI) بيشتغلوا لحساب بهجت. مش موظفين حقيقيين، والصور مرسومة ومش صور أشخاص.</p></div><div class="grid g3">${TEAM.map(a=>`<div class="card" style="text-align:center;border-color:${a.c}66"><div style="width:120px;height:120px;margin:0 auto 10px">${TEAM_SVG[a.k]}</div><h4>${a.n} <span class="est">وكيل AI</span></h4><div style="color:${a.c};font-weight:700;margin:4px 0">${a.r}</div><p class="sub">${a.d}</p></div>`).join('')}</div>`},
- escape(){const its=byKind('escape');
+ team(){const T=(state.meta.team||{}).value||null;const ag=T&&T.agents||{};const upd=T&&T.updated;
+  const id=sub();const a=TEAM.find(x=>x.k===id);
+  if(a){const d=ag[a.k]||{};const msgs=state.cmds.filter(c=>c.kind==='message'&&c.ref==='agent:'+a.k);
+   return `<div class="btns" style="margin-bottom:14px"><a class="btn" href="#team">→ كل الفريق</a></div>
+   <div class="card" style="display:flex;gap:16px;align-items:center;border-color:${a.c}66"><div style="width:96px;height:96px;flex:none">${TEAM_SVG[a.k]}</div><div><h4 style="font-size:20px">${a.n} <span class="est">وكيل AI</span></h4><div style="color:${a.c};font-weight:700">${a.r}</div><div class="note">آخر تحديث: ${upd?fmtTime(upd):'لسه'} · ${E(d.at||'')}</div></div></div>
+   <div class="sec">بيعمل إيه دلوقتي</div><div class="card"><p>${E(d.now||'مفيش تقرير متاح.')}</p></div>
+   <div class="sec">اللي قدامه <span class="c">${AR((d.next||[]).length)}</span></div><div class="card">${(d.next||[]).length?'<ul class="steps">'+d.next.map(x=>`<li>${E(x)}</li>`).join('')+'</ul>':'<p>مفيش.</p>'}</div>
+   <div class="sec">اللي خلصه <span class="c">${AR((d.done||[]).length)}</span></div><div class="grid g2">${(d.done||[]).map(x=>`<div class="card"><p style="color:var(--text)">${E(x.t)}</p><div class="note">${E(x.at||'')}</div></div>`).join('')||'<div class="empty">مفيش سجل.</div>'}</div>
+   <div class="sec">كلّم ${a.n}</div><div class="card"><textarea id="tm" placeholder="اكتب رسالتك لـ${a.n} بالعربي"></textarea><div class="btns"><button class="btn gold" id="ts" data-agent="${a.k}">ابعت</button></div>
+   <div class="note">الرسالة بتتسجل هنا وبتوصل للمنسق (مش للوكيل مباشرة) وهو بيوجهها لـ${a.n}، في حدود ١٠ دقايق تقريبا. مفيش رد فوري. ${a.n} وكيل ذكاء اصطناعي مش موظف.</div></div>
+   ${msgs.length?'<div class="sec">رسايلك</div><div class="grid g2">'+msgs.map(c=>`<div class="card"><div class="row"><h4>رسالة</h4>${badge(c.status)}</div><p>${E(c.body||'')}</p><div class="note">${fmtTime(c.created_at)}</div></div>`).join('')+'</div>':''}`}
+  return `<div class="card" style="margin-bottom:16px"><p>الفريق ده تسعة وكلاء ذكاء اصطناعي (AI) بيشتغلوا لحساب بهجت، مش موظفين حقيقيين. الصور مرسومة. دوس على أي كارت تشوف بيعمل إيه ومحتاج إيه. البيانات من تقارير الوكلاء الفعلية، آخر تحديث: ${upd?fmtTime(upd):'لسه'}.</p></div><div class="grid g3">${TEAM.map(a=>{const d=ag[a.k]||{};return `<a href="#team/${a.k}" class="card" style="text-align:center;border-color:${a.c}66;text-decoration:none;color:inherit;display:block"><div style="width:110px;height:110px;margin:0 auto 10px">${TEAM_SVG[a.k]}</div><h4>${a.n} <span class="est">وكيل AI</span></h4><div style="color:${a.c};font-weight:700;margin:4px 0">${a.r}</div><p class="sub" style="font-size:13px">${E((d.now||a.d).slice(0,95))}${(d.now||'').length>95?'…':''}</p><div class="note">${E(d.at||'')}</div></a>`}).join('')}</div>`}, escape(){const its=byKind('escape');
   const G={1:'١. حسابات جيميل (الأول)',2:'٢. الدومينات',3:'٣. الفلوس والعمل',4:'٤. أدوات التقنية',5:'٥. السوشيال'};
   const STEPS=['غيّر الباسورد','اعمل خروج من كل الأجهزة','راجع إيميل ورقم الاسترجاع','راجع التحقق بخطوتين (2FA)','راجع آخر نشاط','شيل أي جهاز أو تطبيق مش عارفه'];
   const ld=k=>{try{return JSON.parse(localStorage.getItem('esc:'+k)||'[]')}catch(e){return []}};
@@ -186,6 +197,7 @@ function bind(){
   else if(a==='reject'){const r=await confirmBox('تأكيد الرفض','هترفض: '+it.title,'رفض',true);if(r.ok)await send('reject',k,r.note)}
   else if(a==='task_done'){const r=await confirmBox('خلصت؟','هنسجل إنك خلصت: '+it.title,'خلصت',true);if(r.ok)await send('task_done',k,r.note)}
   else if(a==='task_help'){const r=await confirmBox('محتاج مساعدة','اكتب لنا واقف فين','ابعت',true);if(r.ok)await send('task_help',k,r.note)}});
+ const ts=$('#ts');if(ts)ts.onclick=async()=>{const t=$('#tm').value.trim();if(!t){toast('اكتب الرسالة الأول');return}ts.disabled=true;const ok=await send('message','agent:'+ts.dataset.agent,t,'الفريق');if(!ok)ts.disabled=false};
  const cs=$('#cs');if(cs)cs.onclick=async()=>{const t=$('#ct').value.trim();if(!t){toast('اكتب الأمر الأول');return}
   cs.disabled=true;const ok=await send('command',null,t,$('#cl').value);if(!ok)cs.disabled=false};
 }
