@@ -108,7 +108,7 @@ function goalBlock(){
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
  return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
 const VIEWS={
- talk(){return `<div class="card"><h3>🎙 كلّمني بالصوت</h3><p>بتكلم <b>مساعد ذكاء اصطناعي (Gemini)</b>، مش المنسّقة ولا أي وكيل في الفريق مباشرة. المحادثة كلام وبس: المساعد مبينفذش أوامر، مش شايف بيانات الموقع، ومش بيحفظ حاجة. صوتك بيروح لجوجل (Gemini) علشان يرد.</p>
+ talk(){return `<div class="card"><h3>🎙 كلّمني بالصوت</h3><p>كلامك بيتحوّل لنص بواسطة <b>Gemini (ذكاء اصطناعي)</b> ويتبعت للمدير (الوكيل الرئيسي). <b>الرد جاي من المدير، مش من Gemini</b>، وGemini بس بيقراه بصوت. <b>فيه تأخير:</b> الرد غالبًا بياخد من دقيقة لعدة دقايق، والصفحة هتنطقه أول ما يوصل (سيبها مفتوحة). الصوت بيروح لجوجل علشان يتحوّل لنص. الصفحة محادثة بس: أي أمر حساس (فلوس، نشر، إرسال باسمك) لازم موافقة منك صريحة ومش بيتنفذ من الصوت.</p>
  <div class="btns"><button class="btn gold" id="mic">ابدأ المحادثة 🎙</button><button class="btn" id="micx" style="display:none">وقّف</button></div><div class="note" id="mst">جاهز. الزرار بيطلب إذن الميكروفون.</div><div class="sec">النص</div><div class="card" id="mlog" style="min-height:120px;white-space:pre-wrap"></div></div>`},
  team(){const T=(state.meta.team||{}).value||null;const ag=T&&T.agents||{};const upd=T&&T.updated;
   const id=sub();const a=ALL.find(x=>x.k===id);
@@ -200,22 +200,35 @@ async function voiceStart(){
   const ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
   const out=new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000});
   const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(j.token));
-  VC={ws,mic,ac,out,t:0};
-  ws.onopen=()=>{ws.send(JSON.stringify({setup:{model:'models/'+j.model,generationConfig:{responseModalities:['AUDIO']},systemInstruction:{parts:[{text:'انت مساعد صوتي ذكاء اصطناعي اسمه مساعد مركز القيادة. اتكلم بالعامية المصرية بجمل قصيرة. ده كلام وبس: متنفذش أوامر ومتدّعيش إنك شايف بيانات الموقع أو بتنفذ حاجة. لو طلبوا تنفيذ قول إنهم يكتبوه في صفحة الفريق أو الأوامر. وضّح لو سألوك إنك مساعد ذكاء اصطناعي مش شخص ومش المنسّقة.'}]},inputAudioTranscription:{},outputAudioTranscription:{}}}))};
+  VC={ws,mic,ac,out,t:0,q:[],buf:''};VC.pt=setInterval(voicePoll,5000);voicePoll();
+  ws.onopen=()=>{ws.send(JSON.stringify({setup:{model:'models/'+j.model,generationConfig:{responseModalities:['AUDIO']},systemInstruction:{parts:[{text:'انت قارئ صوتي بس، ذكاء اصطناعي. متردش من عندك على كلام المستخدم وفضّل ساكت. لما توصلك رسالة نصية تبدأ بـ اقرأ بالنص، اقراها بصوت واضح بالعامية المصرية بالنص بالظبط من غير أي إضافة. لو سألك حد قول إنك ذكاء اصطناعي والرد بييجي من المدير.'}]},inputAudioTranscription:{},outputAudioTranscription:{}}}))};
   ws.onmessage=async ev=>{let m;try{m=JSON.parse(ev.data instanceof Blob?await ev.data.text():ev.data)}catch(e){return}
-   if(m.setupComplete){st('شغال. اتكلم دلوقتي.');const src=ac.createMediaStreamSource(mic);const pr=ac.createScriptProcessor(4096,1,1);pr.onaudioprocess=e=>{if(ws.readyState!==1)return;const f=e.inputBuffer.getChannelData(0),b=new Int16Array(f.length);for(let i=0;i<f.length;i++){b[i]=Math.max(-1,Math.min(1,f[i]))*32767}let s='',u=new Uint8Array(b.buffer);for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);ws.send(JSON.stringify({realtimeInput:{audio:{data:btoa(s),mimeType:'audio/pcm;rate=16000'}}}))};src.connect(pr);pr.connect(ac.destination);VC.pr=pr}
+   if(m.setupComplete){st('شغال. اتكلم، وبعدين استنى رد المدير (بياخد وقت).');const src=ac.createMediaStreamSource(mic);const pr=ac.createScriptProcessor(4096,1,1);pr.onaudioprocess=e=>{if(ws.readyState!==1||VC.reading)return;const f=e.inputBuffer.getChannelData(0),b=new Int16Array(f.length);for(let i=0;i<f.length;i++){b[i]=Math.max(-1,Math.min(1,f[i]))*32767}let s='',u=new Uint8Array(b.buffer);for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);ws.send(JSON.stringify({realtimeInput:{audio:{data:btoa(s),mimeType:'audio/pcm;rate=16000'}}}))};src.connect(pr);pr.connect(ac.destination);VC.pr=pr}
    const sc=m.serverContent;if(!sc)return;
-   if(sc.inputTranscription)log('انت',sc.inputTranscription.text);
-   if(sc.outputTranscription)log('المساعد',sc.outputTranscription.text);
+   if(sc.inputTranscription&&!VC.reading){VC.buf=(VC.buf||'')+sc.inputTranscription.text;clearTimeout(VC.ft);VC.ft=setTimeout(()=>voiceFlush(),3000)}
+   if(sc.turnComplete&&VC.reading){VC.reading=false;setTimeout(()=>voiceNext(),300)}
    if(sc.interrupted){VC.t=0}
-   const ps=sc.modelTurn&&sc.modelTurn.parts||[];for(const p of ps){if(p.inlineData&&p.inlineData.data){const bin=atob(p.inlineData.data),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const d=new Int16Array(u.buffer),f=new Float32Array(d.length);for(let i=0;i<d.length;i++)f[i]=d[i]/32768;const ab=out.createBuffer(1,f.length,24000);ab.copyToChannel(f,0);const bs=out.createBufferSource();bs.buffer=ab;bs.connect(out.destination);VC.t=Math.max(VC.t,out.currentTime);bs.start(VC.t);VC.t+=ab.duration}}
+   const ps=VC.reading&&sc.modelTurn&&sc.modelTurn.parts||[];for(const p of ps){if(p.inlineData&&p.inlineData.data){const bin=atob(p.inlineData.data),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const d=new Int16Array(u.buffer),f=new Float32Array(d.length);for(let i=0;i<d.length;i++)f[i]=d[i]/32768;const ab=out.createBuffer(1,f.length,24000);ab.copyToChannel(f,0);const bs=out.createBufferSource();bs.buffer=ab;bs.connect(out.destination);VC.t=Math.max(VC.t,out.currentTime);bs.start(VC.t);VC.t+=ab.duration}}
   };
   ws.onerror=()=>st('حصل خطأ في الاتصال');
   ws.onclose=()=>{st('المحادثة اتقفلت');voiceStop(true)};
   $('#mic').style.display='none';$('#micx').style.display='';
  }catch(e){st('ماقدرتش أبدأ: '+(e.name==='NotAllowedError'?'الميكروفون اتمنع':e.message));voiceStop(true)}
 }
-function voiceStop(quiet){if(VC){try{VC.ws.close()}catch(e){}try{VC.pr&&VC.pr.disconnect()}catch(e){}try{VC.mic.getTracks().forEach(t=>t.stop())}catch(e){}try{VC.ac.close();VC.out.close()}catch(e){}VC=null}
+
+async function voiceFlush(){if(!VC)return;const t=(VC.buf||'').trim();VC.buf='';if(t.length<2)return;
+ const l=$('#mlog');l.textContent+='انت: '+t+'\n   ⏳ اتبعت للمدير، استنى الرد (بياخد وقت)\n';
+ const {error}=await sb.from('ops_commands').insert({kind:'message',ref:'voice',body:t,line:'رسالة صوتية (نص مُلتقط)'});
+ if(error){l.textContent+='   ⚠ ماوصلش: '+error.message+'\n'}}
+async function voicePoll(){if(!VC)return;try{const {data}=await sb.from('ops_state').select('*').eq('key','voice_replies');
+ const v=data&&data[0]&&data[0].value||{};const items=v.items||[];let sp=[];try{sp=JSON.parse(localStorage.getItem('voiceSpoken')||'[]')}catch(e){}
+ for(const it of items){if(!it.id||sp.includes(it.id))continue;if(it.at&&Date.now()-new Date(it.at).getTime()>3600e3)continue;sp.push(it.id);VC.q.push(it)}
+ localStorage.setItem('voiceSpoken',JSON.stringify(sp.slice(-100)));voiceNext()}catch(e){}}
+function voiceNext(){if(!VC||VC.reading||!VC.q.length||VC.ws.readyState!==1)return;const it=VC.q.shift();VC.reading=true;
+ const l=$('#mlog');if(l)l.textContent+='الرد من المدير: '+it.text+'\n';
+ VC.ws.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:'اقرأ بالنص بالظبط وبصوت واضح من غير أي إضافة: '+it.text}]}],turnComplete:true}}));
+ clearTimeout(VC.rt);VC.rt=setTimeout(()=>{if(VC){VC.reading=false;voiceNext()}},60000)}
+function voiceStop(quiet){if(VC){clearInterval(VC.pt);clearTimeout(VC.ft);clearTimeout(VC.rt);try{VC.ws.close()}catch(e){}try{VC.pr&&VC.pr.disconnect()}catch(e){}try{VC.mic.getTracks().forEach(t=>t.stop())}catch(e){}try{VC.ac.close();VC.out.close()}catch(e){}VC=null}
  const m=$('#mic'),x=$('#micx');if(m)m.style.display='';if(x)x.style.display='none';if(!quiet){const s=$('#mst');if(s)s.textContent='اتقفلت.'}}
 async function send(kind,ref,body,line){
  const {error}=await sb.from('ops_commands').insert({kind,ref:ref||null,body:body||null,line:line||null});
