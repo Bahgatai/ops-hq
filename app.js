@@ -106,7 +106,27 @@ function taskHim(t){
 function goalBlock(){
  const g=meta('goal')||{target:1000000,earned:0};const pct=Math.max(0,Math.min(100,(g.earned/g.target)*100));
  let days='';if(g.deadline){const d=Math.ceil((new Date(g.deadline)-new Date())/864e5);days=`<span>باقي ${AR(Math.max(d,0))} يوم</span>`}
- return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
+ return `<div class="goal"><div class="bar"><i style="width:${pct}%"></i></div><div class="nums"><span><b>${money(g.earned)}</b> دخلت فعلا</span><span>${AR(Math.round(pct*10)/10)}٪ من الهدف</span>${days}<span>الهدف ${money(g.target)}</span></div>${g.note?`<div class="note">${E(g.note)}</div>`:''}</div>`}
+window.MM=window.MM||{open:{}};if(!window.MMB){window.MMB=1;document.addEventListener('click',e=>{const b=e.target.closest('[data-mm]');const a=e.target.closest('[data-mmall]');if(b){const k=b.dataset.mm;MM.open[k]=!MM.open[k];render();return}if(a){const on=a.dataset.mmall==='1';byKind('line').forEach(i=>MM.open[i.key]=on);render()}})}
+function mmcls(st){return st==='block'?'blk':(st==='run'||st==='done'||st==='approved')?'live':'pend'}
+function mindmap(){
+ const l=byKind('line');const g=meta('goal')||{target:1000000,earned:0};
+ const cnt={live:0,pend:0,blk:0};l.forEach(i=>cnt[mmcls(i.status)]++);
+ const lab={live:'شغال',pend:'مستني',blk:'واقف'};
+ const br=l.map(i=>{const p=i.payload||{};const c=mmcls(i.status);const o=!!MM.open[i.key];
+  const kids=[];
+  if(i.body)kids.push(['وصف',i.body,'']);
+  if(p.next)kids.push(['الخطوة الجاية',p.next,'live']);
+  if(p.blocker)kids.push(['واقف على',p.blocker,'blk']);
+  const has=kids.length>0;
+  return `<div class="mb ${c}${o?' open':''}"><button class="mn ${c}" data-mm="${E(i.key)}"><span class="dt"></span><b>${E(i.title)}</b><em>${lab[c]}</em>${has?`<span class="ar">${o?'−':'+'}</span>`:''}</button>${o&&has?`<div class="mk">${kids.map(k=>`<div class="mc ${k[2]||c}"><small>${k[0]}</small>${TB(k[1])}</div>`).join('')}</div>`:''}${o&&!has?'<div class="mk"><div class="mc"><small>لسه مفيش خطوات مسجلة للخط ده</small></div></div>':''}</div>`}).join('');
+ return `<div class="sec">خريطة المليون</div><div class="card mm"><div class="mtools"><span class="lg live"><i></i>شغال ${AR(cnt.live)}</span><span class="lg pend"><i></i>مستني ${AR(cnt.pend)}</span><span class="lg blk"><i></i>واقف ${AR(cnt.blk)}</span><span class="sp"></span><button class="btn" data-mmall="1">فتح الكل</button><button class="btn" data-mmall="0">قفل الكل</button></div>
+ <div class="mtree"><div class="mroot"><div class="core"><b>${money(g.target)}</b><span>الهدف</span><small>دخل فعلا: ${money(g.earned)}</small></div></div><div class="mbs">${br||'<div class="empty">لسه مفيش خطوط شغل</div>'}</div></div><div class="note">الألوان من حالة كل خط في البيانات الفعلية. دوس على أي خط يفتح خطوته الجاية واللي واقف عليه.</div></div>`}
+function viz(){
+ const J=((meta('jobs')||{}).series)||[];
+ const mx=Math.max(1,...J.map(x=>Math.max(+x.applied||0,+x.replies||0)));
+ const jobs=J.length?`<div class="vjobs">${J.map(x=>`<div class="vd"><div class="vb"><i class="a" style="height:${(+x.applied||0)/mx*100}%"></i><i class="r" style="height:${(+x.replies||0)/mx*100}%"></i></div><div class="vn">${AR(+x.applied||0)} / ${AR(+x.replies||0)}</div><div class="note">${E(String(x.d||'').slice(5))}</div></div>`).join('')}</div><div class="note"><span class="dot a"></span> تقديمات <span class="dot r"></span> ردود</div>`:'<div class="empty">لسه مفيش أرقام تقديم وردود مسجلة بالتواريخ. هتظهر هنا أول ما الفريق يسجلها.</div>';
+ return mindmap()+`<div class="sec">التقديم على وظايف والردود</div><div class="card">${jobs}</div>`}
 const VIEWS={
  talk(){return `<div class="card"><h3>🎙 كلّمني بالصوت</h3><p>كلامك بيتحوّل لنص بواسطة <b>Gemini (ذكاء اصطناعي)</b> ويتبعت للمدير (الوكيل الرئيسي). <b>الرد جاي من المدير، مش من Gemini</b>، وGemini بس بيقراه بصوت. <b>فيه تأخير:</b> الرد غالبًا بياخد من دقيقة لعدة دقايق، والصفحة هتنطقه أول ما يوصل (سيبها مفتوحة). الصوت بيروح لجوجل علشان يتحوّل لنص. الصفحة محادثة بس: أي أمر حساس (فلوس، نشر، إرسال باسمك) لازم موافقة منك صريحة ومش بيتنفذ من الصوت.</p>
  <div class="btns"><button class="btn gold" id="mic">ابدأ المحادثة 🎙</button><button class="btn" id="micx" style="display:none">وقّف</button></div><div class="note" id="mst">جاهز. الزرار بيطلب إذن الميكروفون.</div><div class="sec">النص</div><div class="card" id="mlog" style="min-height:120px;white-space:pre-wrap"></div></div>`},
@@ -146,7 +166,7 @@ const VIEWS={
   const lines=byKind('line');
   return `<div class="hero"><div><h2>ماكينة المليون</h2><p>هنا كل حاجة قدامك: اللي مستني قرارك، اللي إنت عليك، واللي إحنا شغالين فيه. اتكلم معانا من تبويب أوامر.</p>${goalBlock()}</div>${LAMP}</div>
   <div class="grid g4 k"><div class="card kpi"><div class="v">${AR(dec.length)}</div><div class="l">قرارات مستنياك</div></div><div class="card kpi"><div class="v">${AR(mine.length)}</div><div class="l">مهام عليك</div></div><div class="card kpi"><div class="v">${AR(run.length)}</div><div class="l">شغال دلوقتي</div></div><div class="card kpi"><div class="v">${AR(lines.length)}</div><div class="l">خطوط شغل</div></div></div>
-  <div class="sec">مستني موافقتك <span class="c">${AR(dec.length)}</span></div>
+  ${viz()}<div class="sec">مستني موافقتك <span class="c">${AR(dec.length)}</span></div>
   <div class="grid g2">${dec.map(decisionCard).join('')||'<div class="empty">مفيش قرارات واقفة عليك دلوقتي</div>'}</div>
   ${byKind('input').filter(x=>x.status==='open'&&!cmdFor(x.key,['message'])).length?`<div class="sec">محتاجين منك بيانات</div><div class="grid g2">${byKind('input').filter(x=>x.status==='open'&&!cmdFor(x.key,['message'])).map(inputCard).join('')}</div>`:''}
   <div class="sec">مطلوب منك <span class="c">${AR(mine.length)}</span></div>
